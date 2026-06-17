@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Recording</title>
+    <style>
+      :root { font-family: Inter, -apple-system, system-ui, sans-serif; }
+      * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+      html, body { width: 100vw; height: 100vh; overflow: hidden; background: transparent; }
+      body { display: flex; align-items: center; justify-content: center; }
+      #pill {
+        display: inline-flex; align-items: center; gap: 8px; height: 40px;
+        padding: 0 10px 0 12px; background: rgba(20,20,22,.95); border-radius: 20px;
+        box-shadow: 0 8px 30px rgba(0,0,0,.5); -webkit-app-region: drag; white-space: nowrap;
+      }
+      #dot { width: 11px; height: 11px; border-radius: 50%; background: #ef4444; animation: blink 1s infinite; flex: none; }
+      #dot.paused { animation: none; background: #f59e0b; }
+      @keyframes blink { 50% { opacity: .25; } }
+      #time { color: #fff; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 38px; }
+      button { -webkit-app-region: no-drag; cursor: pointer; font-family: inherit; border: none; }
+      #stop {
+        background: #ef4444; color: #fff; border-radius: 8px;
+        padding: 6px 14px; font-size: 12px; font-weight: 700;
+      }
+      #stop:hover { background: #dc2626; }
+      .icon {
+        width: 30px; height: 30px; border-radius: 8px; background: rgba(255,255,255,.1);
+        color: #fff; display: flex; align-items: center; justify-content: center;
+      }
+      .icon:hover { background: rgba(255,255,255,.2); }
+      .icon svg { width: 15px; height: 15px; display: block; }
+      #del:hover { background: #ef4444; }
+      .sep { width: 1px; height: 20px; background: rgba(255,255,255,.15); margin: 0 1px; flex: none; }
+    </style>
+  </head>
+  <body>
+    <div id="pill">
+      <span id="dot"></span>
+      <span id="time">0:00</span>
+      <button id="stop">Stop</button>
+      <span class="sep"></span>
+      <button class="icon" id="restart" title="Start over">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </button>
+      <button class="icon" id="pause" title="Pause"></button>
+      <button class="icon" id="del" title="Delete recording">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/></svg>
+      </button>
+    </div>
+    <script type="module" src="/src/recorder.js"></script>
+  </body>
+</html>

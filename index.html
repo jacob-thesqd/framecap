@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>FrameCap Editor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #0e0e11; --panel: #17171c; --panel2: #1f1f26; --line: #2a2a33;
+        --text: #e7e7ea; --muted: #9a9aa6; --accent: #513DE5; --accent2: #4230c4;
+        font-family: Inter, -apple-system, system-ui, sans-serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+      #titlebar {
+        height: 34px; flex: none; display: flex; align-items: center; justify-content: flex-end;
+        gap: 8px; padding: 0 12px 0 84px; background: transparent;
+      }
+      .ticon {
+        -webkit-app-region: no-drag; width: 30px; height: 30px; border-radius: 8px;
+        background: var(--panel2); color: var(--text); border: none; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .ticon:hover { background: #2a2a33; }
+      .ticon svg { width: 16px; height: 16px; display: block; }
+      #errbar {
+        display: none; padding: 8px 16px; background: #3a1d1d; color: #fca5a5;
+        font-size: 12px; font-weight: 500; border-bottom: 1px solid #4a2525;
+      }
+      #errbar.show { display: block; }
+      .grow { flex: 1; }
+      .main { flex: 1; display: flex; min-height: 0; }
+      .stage { flex: 1; display: flex; flex-direction: column; padding: 8px 16px 16px; min-width: 0; }
+      #vstage {
+        flex: 1; position: relative; background: #000; border-radius: 12px; overflow: hidden;
+        display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); min-height: 0;
+      }
+      #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1; opacity: 0; }
+      #preview { position: relative; z-index: 2; display: block; pointer-events: none; }
+      #preview.interactive { pointer-events: auto; cursor: crosshair; }
+      .transport { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+      .transport input[type=range] { flex: 1; accent-color: var(--accent); margin: 0; }
+      #playBtn { padding: 8px 12px; }
+      .controls { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+      .controls input[type=range] { flex: 1; accent-color: var(--accent); }
+      .time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 92px; }
+      button.btn {
+        font-family: inherit; font-size: 13px; font-weight: 600; color: #fff;
+        background: var(--accent); border: none; border-radius: 8px; padding: 9px 14px; cursor: pointer;
+        white-space: nowrap;
+      }
+      button.btn:hover { background: var(--accent2); }
+      button.ghost { background: var(--panel2); color: var(--text); }
+      button.ghost:hover { background: #2a2a33; }
+      .extractbar { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+      .extractbar label { font-size: 12px; color: var(--muted); }
+      .extractbar input[type=number] {
+        width: 60px; background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+        border-radius: 7px; padding: 6px 8px; font-family: inherit; font-size: 13px;
+      }
+      button.btn.active { background: #16a34a; }
+      .cropinfo { font-size: 12px; color: #4ade80; font-weight: 600; font-variant-numeric: tabular-nums; }
+      .cropinfo:empty { display: none; }
+      /* crop apply/cancel float inside the stage */
+      #cropTools {
+        position: absolute; display: none; gap: 6px; z-index: 5; bottom: 12px; left: 50%;
+        transform: translateX(-50%);
+        background: rgba(20,20,22,.95); padding: 6px; border-radius: 9px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      }
+      #cropTools button {
+        font-family: inherit; font-size: 12px; font-weight: 700; color: #fff; border: none;
+        border-radius: 6px; padding: 6px 12px; cursor: pointer;
+      }
+      #cropApply { background: var(--accent); }
+      #cropCancel { background: rgba(255,255,255,.14); }
+      /* inline annotate toolbar (video-level) */
+      .annoinline {
+        display: none; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap;
+        background: transparent; border: none; padding: 4px 0;
+      }
+      .annoinline.open { display: flex; }
+      kbd {
+        display: inline-flex; align-items: center; justify-content: center; min-width: 16px;
+        margin-left: 6px; padding: 1px 5px; font-family: inherit; font-size: 11px; font-weight: 700;
+        line-height: 1.4; color: var(--muted); background: rgba(255,255,255,.08);
+        border: 1px solid var(--line); border-radius: 5px;
+      }
+      kbd.on { color: rgba(255,255,255,.85); background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.25); }
+      /* sidebar */
+      .side {
+        width: 300px; margin: 8px 16px 0 0; background: var(--panel); border: 1px solid var(--line);
+        border-radius: 12px 12px 0 0; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+      }
+      .side h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); padding: 14px 16px 8px; }
+      .filmstrip { flex: 1; overflow-y: auto; padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+      .frame { position: relative; border-radius: 9px; overflow: hidden; border: 2px solid transparent; background: #000; cursor: pointer; }
+      .frame.sel { border-color: var(--accent); }
+      .frame img { width: 100%; display: block; }
+      .frame .meta {
+        position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 700; color: #fff;
+        background: rgba(0,0,0,.6); padding: 2px 6px; border-radius: 5px; font-variant-numeric: tabular-nums;
+      }
+      .frame .acts { position: absolute; bottom: 6px; right: 6px; display: flex; gap: 5px; opacity: 0; transition: opacity .12s; }
+      .frame:hover .acts { opacity: 1; }
+      .frame .acts button {
+        font-size: 10px; font-weight: 700; border: none; border-radius: 5px; padding: 4px 7px; cursor: pointer; color: #fff;
+        background: rgba(20,20,22,.9);
+      }
+      .frame .acts button:hover { background: var(--accent); }
+      .frame .pick {
+        position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%;
+        background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center;
+        font-size: 11px; font-weight: 800; color: #fff;
+      }
+      .frame.sel .pick { background: var(--accent); }
+      .sidefoot { border-top: 1px solid var(--line); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+      .sidefoot .row { display: flex; gap: 8px; align-items: center; }
+      .sidefoot label { font-size: 12px; color: var(--muted); }
+      .sidefoot input[type=number] {
+        width: 56px; background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+        border-radius: 7px; padding: 5px 7px; font-family: inherit; font-size: 13px;
+      }
+      .empty { color: var(--muted); font-size: 12px; padding: 24px 16px; text-align: center; }
+      .toast {
+        position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(20px);
+        background: #1f1f26; border: 1px solid var(--line); color: var(--text); font-size: 13px; font-weight: 500;
+        padding: 10px 16px; border-radius: 9px; opacity: 0; transition: all .2s; pointer-events: none; box-shadow: 0 8px 30px rgba(0,0,0,.5);
+      }
+      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      /* annotation modal */
+      #annoModal {
+        position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column;
+        background: rgba(8,8,10,.92); backdrop-filter: blur(4px);
+      }
+      #annoModal.open { display: flex; }
+      #annoBar {
+        display: flex; align-items: center; gap: 14px; padding: 10px 14px;
+        background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap;
+      }
+      .annogroup { display: flex; align-items: center; gap: 6px; }
+      .annolbl { font-size: 12px; color: var(--muted); }
+      .annotool {
+        font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text);
+        background: var(--panel2); border: 1px solid var(--line); border-radius: 7px;
+        padding: 7px 11px; cursor: pointer; min-width: 38px;
+      }
+      .annotool.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .annoswatch { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+      .annoswatch.active { border-color: #fff; }
+      .annobtn {
+        font-family: inherit; font-size: 13px; font-weight: 600; color: #fff;
+        background: var(--accent); border: none; border-radius: 7px; padding: 8px 14px; cursor: pointer;
+      }
+      .annobtn.ghost { background: var(--panel2); color: var(--text); }
+      .annobtn.ghost:hover { background: #2a2a33; }
+      #annoStage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 16px; }
+      #annoCanvas { max-width: 100%; max-height: 100%; cursor: crosshair; box-shadow: 0 10px 50px rgba(0,0,0,.6); background: #000; }
+    </style>
+  </head>
+  <body>
+    <div id="titlebar" data-tauri-drag-region>
+      <button class="ticon" id="newBtn" title="New recording">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>
+      </button>
+      <button class="ticon" id="loadBtn" title="Open recording">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      </button>
+    </div>
+    <div id="errbar"></div>
+    <div class="main">
+      <div class="stage">
+        <div id="vstage">
+          <video id="video" playsinline></video>
+          <canvas id="preview"></canvas>
+          <div id="cropTools">
+            <button id="cropApply">Apply crop</button>
+            <button id="cropCancel">Cancel</button>
+          </div>
+        </div>
+        <div class="transport">
+          <button class="btn ghost" id="playBtn">►</button>
+          <input type="range" id="seek" min="0" max="1000" value="0" />
+          <span class="time" id="time">0.00 / 0.00s</span>
+        </div>
+        <div class="controls">
+          <button class="btn ghost" id="cropBtn">✂ Crop</button>
+          <span class="cropinfo" id="cropInfo"></span>
+          <button class="btn ghost" id="annoBtn">✎ Annotate video</button>
+          <span class="grow"></span>
+          <button class="btn ghost" id="stepBack">‹ frame <kbd>←</kbd></button>
+          <button class="btn ghost" id="stepFwd">frame › <kbd>→</kbd></button>
+          <button class="btn" id="capBtn">＋ Capture frame <kbd class="on">↑</kbd></button>
+        </div>
+        <div class="annoinline" id="annoInline"></div>
+      </div>
+      <div class="side">
+        <h2 style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span>Frames <span id="frameCount" style="color:var(--muted)"></span></span>
+          <button class="btn ghost" id="clearAll" style="padding:4px 10px;font-size:11px">Clear all</button>
+        </h2>
+        <div class="filmstrip" id="filmstrip">
+          <div class="empty" id="emptyMsg">Capture or extract frames from the video — they'll appear here.</div>
+        </div>
+        <div class="sidefoot">
+          <div class="row">
+            <label>Collage cols</label>
+            <input type="number" id="cols" value="0" min="0" max="20" />
+            <span style="font-size:11px;color:var(--muted)">0 = single row</span>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="numbered" checked /> number frames</label>
+          </div>
+          <div class="row">
+            <button class="btn ghost" id="collageSave" style="flex:1">Save</button>
+            <button class="btn" id="collageCopy" style="flex:1">Copy <kbd class="on">⇧↵</kbd></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- annotation editor modal -->
+    <div id="annoModal">
+      <div id="annoBar">
+        <div id="annoTools" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex:1"></div>
+        <button class="annobtn ghost" id="annoCancelBtn">Cancel</button>
+        <button class="annobtn" id="annoSave">Save</button>
+      </div>
+      <div id="annoStage"><canvas id="annoCanvas"></canvas></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <canvas id="work" style="display:none"></canvas>
+    <script type="module" src="/src/editor.js"></script>
+  </body>
+</html>
