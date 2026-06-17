@@ -84,6 +84,20 @@ fn even(v: i64) -> i64 {
     v - (v % 2)
 }
 
+// Shift+Return is only a global shortcut while a recording is active (to stop it),
+// so it doesn't steal Shift+Return system-wide the rest of the time.
+fn set_stop_shortcut(app: &AppHandle, on: bool) {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+    if let Ok(sc) = "Shift+Enter".parse::<Shortcut>() {
+        let gs = app.global_shortcut();
+        if on {
+            let _ = gs.register(sc);
+        } else {
+            let _ = gs.unregister(sc);
+        }
+    }
+}
+
 fn open_overlay(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("overlay") {
         let _ = w.set_focus();
@@ -144,9 +158,6 @@ fn ensure_screen_permission() -> bool {
 
 #[tauri::command]
 fn start_selection(app: AppHandle) {
-    if !ensure_screen_permission() {
-        return;
-    }
     open_overlay(&app);
 }
 
@@ -256,6 +267,7 @@ fn start_recording(
         .visible(true)
         .build();
 
+    set_stop_shortcut(&app, true);
     Ok(())
 }
 
@@ -268,6 +280,8 @@ fn stop_recording(app: AppHandle, state: tauri::State<AppState>) -> Result<(), S
         .take()
         .ok_or("No active recording")?;
 
+    set_stop_shortcut(&app, false);
+
     // close the pill and open the editor immediately so the window is up while we finalize
     if let Some(w) = app.get_webview_window("recorder") {
         let _ = w.close();
@@ -277,11 +291,16 @@ fn stop_recording(app: AppHandle, state: tauri::State<AppState>) -> Result<(), S
     // finalize ffmpeg off the main thread so the webview never blocks
     let app = app.clone();
     std::thread::spawn(move || {
-        // graceful stop so the mp4 moov atom is written
+        let pid = r.child.id().to_string();
+        // resume first in case the recording was paused (SIGSTOP) — a suspended
+        // process can't process the quit request and would be force-killed (no moov atom)
+        let _ = Command::new("kill").args(["-CONT", &pid]).status();
+        // graceful stop so the mp4 moov atom is written: 'q' on stdin + SIGINT (clean Ctrl-C)
         if let Some(stdin) = r.child.stdin.as_mut() {
             let _ = stdin.write_all(b"q\n");
             let _ = stdin.flush();
         }
+        let _ = Command::new("kill").args(["-INT", &pid]).status();
         // wait up to ~8s for a clean exit, then force-kill as a fallback
         let mut waited = 0;
         loop {
@@ -353,6 +372,7 @@ fn resume_recording(state: tauri::State<AppState>) -> bool {
 
 #[tauri::command]
 fn delete_recording(app: AppHandle, state: tauri::State<AppState>) {
+    set_stop_shortcut(&app, false);
     discard_recording(&state);
     if let Some(w) = app.get_webview_window("recorder") {
         let _ = w.close();
@@ -363,6 +383,7 @@ fn delete_recording(app: AppHandle, state: tauri::State<AppState>) {
 
 #[tauri::command]
 fn restart_recording(app: AppHandle, state: tauri::State<AppState>) {
+    set_stop_shortcut(&app, false);
     discard_recording(&state);
     if let Some(w) = app.get_webview_window("recorder") {
         let _ = w.close();
@@ -416,14 +437,19 @@ pub fn run() {
             tauri_plugin_global_shortcut::Builder::new()
                 .with_shortcut("CmdOrCtrl+Shift+1")
                 .expect("invalid shortcut")
-                .with_handler(|app, _shortcut, event| {
-                    if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        if screen_perm_granted() {
-                            open_overlay(app);
-                        } else {
-                            screen_perm_request();
-                        }
+                .with_handler(|app, shortcut, event| {
+                    use tauri_plugin_global_shortcut::{Code, Modifiers, ShortcutState};
+                    if event.state != ShortcutState::Pressed {
+                        return;
                     }
+                    // Shift+Return stops an active recording (registered only while recording)
+                    if shortcut.matches(Modifiers::SHIFT, Code::Enter) {
+                        if let Some(w) = app.get_webview_window("recorder") {
+                            let _ = w.eval("document.getElementById('stop')?.click()");
+                        }
+                        return;
+                    }
+                    open_overlay(app);
                 })
                 .build(),
         )
@@ -454,13 +480,7 @@ pub fn run() {
                 .menu(&menu)
                 .tooltip("FrameCap")
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "record" => {
-                        if screen_perm_granted() {
-                            open_overlay(app);
-                        } else {
-                            screen_perm_request();
-                        }
-                    }
+                    "record" => open_overlay(app),
                     "editor" => open_editor(app),
                     "quit" => app.exit(0),
                     _ => {}
