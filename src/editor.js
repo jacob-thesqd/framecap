@@ -51,8 +51,19 @@ video.addEventListener("error", () => {
   showError("Couldn't load video — check Screen Recording permission, then re-record.");
 });
 
-invoke("take_pending_src").then((p) => { if (p) loadRecording(p); });
-invoke("take_pending_error").then((m) => { if (m) showError(m); });
+// poll for the pending recording path — the finalize can beat the event listener
+// registration (esp. for short clips), so a one-shot read can miss it
+let pollTries = 0;
+function pollPending() {
+  invoke("take_pending_src").then((p) => {
+    if (p) { loadRecording(p); return; }
+    invoke("take_pending_error").then((m) => {
+      if (m) { showError(m); return; }
+      if (++pollTries < 40) setTimeout(pollPending, 250); // ~10s window
+    });
+  });
+}
+pollPending();
 listen("recording-ready", (e) => { if (e.payload) loadRecording(e.payload); });
 listen("recording-failed", (e) => {
   const p = typeof e.payload === "string" ? e.payload : "";
