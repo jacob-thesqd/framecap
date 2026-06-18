@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>FrameCap Settings</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #0e0e11; --panel: #17171c; --panel2: #1f1f26; --line: #2a2a33;
+        --text: #e7e7ea; --muted: #9a9aa6; --accent: #513DE5; --accent2: #4230c4;
+        font-family: Inter, -apple-system, system-ui, sans-serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: var(--bg); color: var(--text); height: 100vh; padding: 22px; user-select: none; }
+      h1 { font-size: 16px; font-weight: 800; letter-spacing: .3px; }
+      .ver { font-size: 12px; color: var(--muted); margin-top: 2px; }
+      .row {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+        padding: 12px 14px; margin-top: 14px;
+      }
+      .row .label { font-size: 13px; font-weight: 600; }
+      .row .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+      button {
+        font-family: inherit; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer;
+        background: var(--accent); border: none; border-radius: 8px; padding: 8px 14px; white-space: nowrap;
+      }
+      button:hover { background: var(--accent2); }
+      button.ghost { background: var(--panel2); color: var(--text); }
+      button.ghost:hover { background: #2a2a33; }
+      .kbd {
+        font-size: 13px; font-weight: 700; background: var(--panel2); border: 1px solid var(--line);
+        border-radius: 7px; padding: 6px 12px; min-width: 64px; text-align: center; color: var(--text);
+      }
+      .kbd.recording { border-color: var(--accent); color: #c7bdff; }
+      .status { font-size: 12px; color: var(--muted); margin-top: 10px; min-height: 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>FrameCap</h1>
+    <div class="ver" id="ver">version —</div>
+
+    <div class="row">
+      <div>
+        <div class="label">Software update</div>
+        <div class="sub">Checks GitHub for a newer signed build</div>
+      </div>
+      <button id="checkBtn">Check for updates</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="label">Record shortcut</div>
+        <div class="sub" id="scSub">Click, then press the new combination</div>
+      </div>
+      <span class="grow"></span>
+      <span class="kbd" id="scKbd">…</span>
+      <button class="ghost" id="scBtn">Change</button>
+    </div>
+
+    <div class="status" id="status"></div>
+    <script type="module" src="/src/settings.js"></script>
+  </body>
+</html>

@@ -44,6 +44,94 @@ struct AppState {
     rec: Mutex<Option<Rec>>,
     pending_src: Mutex<Option<String>>,
     pending_error: Mutex<Option<String>>,
+    record_shortcut: Mutex<String>,
+}
+
+const DEFAULT_SHORTCUT: &str = "CmdOrCtrl+Shift+1";
+
+fn settings_path(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_config_dir().ok().map(|d| d.join("settings.json"))
+}
+fn load_shortcut(app: &AppHandle) -> String {
+    if let Some(p) = settings_path(app) {
+        if let Ok(txt) = std::fs::read_to_string(&p) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+                if let Some(s) = v.get("shortcut").and_then(|s| s.as_str()) {
+                    return s.to_string();
+                }
+            }
+        }
+    }
+    DEFAULT_SHORTCUT.to_string()
+}
+fn save_shortcut(app: &AppHandle, accelerator: &str) {
+    if let Some(p) = settings_path(app) {
+        if let Some(dir) = p.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(&p, serde_json::json!({ "shortcut": accelerator }).to_string());
+    }
+}
+
+#[derive(serde::Serialize)]
+struct Settings {
+    version: String,
+    shortcut: String,
+}
+
+#[tauri::command]
+fn get_settings(app: AppHandle, state: tauri::State<AppState>) -> Settings {
+    Settings {
+        version: app.package_info().version.to_string(),
+        shortcut: state.record_shortcut.lock().unwrap().clone(),
+    }
+}
+
+#[tauri::command]
+fn set_shortcut(app: AppHandle, state: tauri::State<AppState>, accelerator: String) -> Result<(), String> {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+    let new: Shortcut = accelerator.parse().map_err(|_| "Invalid shortcut".to_string())?;
+    let gs = app.global_shortcut();
+    let old = state.record_shortcut.lock().unwrap().clone();
+    if let Ok(o) = old.parse::<Shortcut>() {
+        let _ = gs.unregister(o);
+    }
+    gs.register(new).map_err(|e| e.to_string())?;
+    *state.record_shortcut.lock().unwrap() = accelerator.clone();
+    save_shortcut(&app, &accelerator);
+    Ok(())
+}
+
+#[tauri::command]
+async fn check_updates_now(app: AppHandle) -> Result<String, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await.map_err(|e| e.to_string())? {
+        Some(update) => {
+            update
+                .download_and_install(|_, _| {}, || {})
+                .await
+                .map_err(|e| e.to_string())?;
+            app.restart();
+        }
+        None => Ok("You're on the latest version.".to_string()),
+    }
+}
+
+fn open_settings(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("settings") {
+        let _ = w.set_focus();
+        activate_app();
+        return;
+    }
+    let _ = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
+        .title("FrameCap Settings")
+        .inner_size(440.0, 360.0)
+        .resizable(false)
+        .visible(true)
+        .focused(true)
+        .build();
+    activate_app();
 }
 
 fn find_ffmpeg() -> String {
@@ -444,8 +532,6 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_shortcut("CmdOrCtrl+Shift+1")
-                .expect("invalid shortcut")
                 .with_handler(|app, shortcut, event| {
                     use tauri_plugin_global_shortcut::{Code, Modifiers, ShortcutState};
                     if event.state != ShortcutState::Pressed {
@@ -475,26 +561,44 @@ pub fn run() {
             take_pending_src,
             take_pending_error,
             ensure_screen_permission,
+            get_settings,
+            set_shortcut,
+            check_updates_now,
             open_editor_window
         ])
         .setup(|app| {
             let handle = app.handle();
-            let record = MenuItem::with_id(handle, "record", "Record area  (⌘⇧1)", true, None::<&str>)?;
+            let record = MenuItem::with_id(handle, "record", "Record area", true, None::<&str>)?;
             let editor = MenuItem::with_id(handle, "editor", "Open editor", true, None::<&str>)?;
+            let settings = MenuItem::with_id(handle, "settings", "Settings…", true, None::<&str>)?;
             let quit = MenuItem::with_id(handle, "quit", "Quit FrameCap", true, None::<&str>)?;
-            let menu = Menu::with_items(handle, &[&record, &editor, &quit])?;
+            let menu = Menu::with_items(handle, &[&record, &editor, &settings, &quit])?;
 
+            // white, template menubar icon (adapts to light/dark menubar)
+            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
             let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(tray_icon)
+                .icon_as_template(true)
                 .menu(&menu)
                 .tooltip("FrameCap")
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "record" => open_overlay(app),
                     "editor" => open_editor(app),
+                    "settings" => open_settings(app),
                     "quit" => app.exit(0),
                     _ => {}
                 })
                 .build(handle)?;
+
+            // register the record shortcut (saved custom one, or the default)
+            {
+                use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+                let sc = load_shortcut(handle);
+                *app.state::<AppState>().record_shortcut.lock().unwrap() = sc.clone();
+                if let Ok(parsed) = sc.parse::<Shortcut>() {
+                    let _ = app.global_shortcut().register(parsed);
+                }
+            }
 
             // menubar app: no dock icon
             #[cfg(target_os = "macos")]

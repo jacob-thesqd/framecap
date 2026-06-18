@@ -11,6 +11,7 @@ export default defineConfig({
         main: resolve(__dirname, "index.html"),
         overlay: resolve(__dirname, "overlay.html"),
         recorder: resolve(__dirname, "recorder.html"),
+        settings: resolve(__dirname, "settings.html"),
       },
     },
   },
