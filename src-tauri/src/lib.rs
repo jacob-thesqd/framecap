@@ -380,11 +380,17 @@ fn start_recording(
         .visible(true)
         .build();
 
-    // subtle click-through outline showing the area being captured.
-    // window = crop rect inflated 4px so the outline sits OUTSIDE the captured pixels.
-    let m = 4.0;
+    // full-screen click-through overlay: subtle grey dim everywhere except a clear
+    // hole at the capture rect, with a thin accent outline just outside the rect
+    let region_url = format!(
+        "region.html?x={}&y={}&w={}&h={}",
+        x.round() as i64,
+        y.round() as i64,
+        w.round() as i64,
+        h.round() as i64
+    );
     if let Ok(region) =
-        WebviewWindowBuilder::new(&app, "region", WebviewUrl::App("region.html".into()))
+        WebviewWindowBuilder::new(&app, "region", WebviewUrl::App(region_url.into()))
             .title("Recording area")
             .decorations(false)
             .transparent(true)
@@ -393,8 +399,8 @@ fn start_recording(
             .shadow(false)
             .resizable(false)
             .focused(false)
-            .inner_size(w + m * 2.0, h + m * 2.0)
-            .position(x - m, y - m)
+            .inner_size(mw, mh)
+            .position(0.0, 0.0)
             .visible(true)
             .build()
     {
