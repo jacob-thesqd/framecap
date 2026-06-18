@@ -26,18 +26,39 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # Import the self-signed cert into a keychain AND trust it for code signing,
+      # so `security find-identity -v -p codesigning` lists it (tauri resolves by that).
+      - name: Set up code-signing keychain
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -e
+          CERT="$RUNNER_TEMP/cert.p12"
+          PEM="$RUNNER_TEMP/cert.pem"
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT"
+          openssl pkcs12 -in "$CERT" -clcerts -nokeys -out "$PEM" -passin pass:"$APPLE_CERTIFICATE_PASSWORD" -legacy
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
+          security import "$CERT" -k "$KC" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -A
+          security add-trusted-cert -r trustAsRoot -p codeSign -k "$KC" "$PEM" || true
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KC"
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | sed s/\"//g)
+          security default-keychain -s "$KC"
+          echo "--- codesigning identities ---"
+          security find-identity -v -p codesigning "$KC"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # updater (minisign) signing
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS code signing with a stable self-signed identity so the
-          # Screen Recording grant persists across updates (no Apple notarization)
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # sign with the trusted self-signed identity already in the keychain
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "FrameCap ${{ github.ref_name }}"
