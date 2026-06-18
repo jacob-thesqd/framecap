@@ -506,6 +506,15 @@ pub fn run() {
                 screen_perm_request();
             }
 
+            // kill any orphaned ffmpeg from a previous session that was force-quit —
+            // a stray capture process holds the screen device and blocks new recordings
+            #[cfg(target_os = "macos")]
+            {
+                let _ = Command::new("pkill")
+                    .args(["-f", "Movies/FrameCap/rec-"])
+                    .status();
+            }
+
             // check for updates in the background and self-install if one is available
             let update_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
