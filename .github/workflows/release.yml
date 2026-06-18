@@ -39,7 +39,7 @@ jobs:
           PEM="$RUNNER_TEMP/cert.pem"
           KC="$RUNNER_TEMP/signing.keychain-db"
           echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT"
-          openssl pkcs12 -in "$CERT" -clcerts -nokeys -out "$PEM" -passin pass:"$APPLE_CERTIFICATE_PASSWORD" -legacy
+          openssl pkcs12 -in "$CERT" -clcerts -nokeys -out "$PEM" -passin pass:"$APPLE_CERTIFICATE_PASSWORD"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
           security set-keychain-settings -lut 21600 "$KC"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
