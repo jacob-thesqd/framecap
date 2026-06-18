@@ -427,9 +427,20 @@ fn take_pending_error(state: tauri::State<AppState>) -> Option<String> {
     state.pending_error.lock().unwrap().take()
 }
 
+async fn check_for_update(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri_plugin_updater::UpdaterExt;
+    if let Some(update) = app.updater()?.check().await? {
+        // download + install silently, then restart into the new version
+        update.download_and_install(|_, _| {}, || {}).await?;
+        app.restart();
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -496,6 +507,14 @@ pub fn run() {
             if !screen_perm_granted() {
                 screen_perm_request();
             }
+
+            // check for updates in the background and self-install if one is available
+            let update_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = check_for_update(update_handle).await {
+                    eprintln!("update check failed: {e}");
+                }
+            });
 
             Ok(())
         })
