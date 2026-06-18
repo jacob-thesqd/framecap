@@ -12,6 +12,7 @@ export default defineConfig({
         overlay: resolve(__dirname, "overlay.html"),
         recorder: resolve(__dirname, "recorder.html"),
         settings: resolve(__dirname, "settings.html"),
+        region: resolve(__dirname, "region.html"),
       },
     },
   },

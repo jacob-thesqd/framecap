@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Recording area</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100vw; height: 100vh; background: transparent; overflow: hidden; }
+      /* the window is the crop rect inflated by 4px; this div is exactly the rect,
+         and its box-shadow ring sits in the 4px margin OUTSIDE the captured area */
+      #ring {
+        position: absolute; inset: 4px; border-radius: 2px;
+        box-shadow: 0 0 0 2px rgba(81, 61, 229, 0.9), 0 0 10px 2px rgba(81, 61, 229, 0.35);
+        animation: pulse 2s ease-in-out infinite;
+      }
+      @keyframes pulse { 50% { box-shadow: 0 0 0 2px rgba(81,61,229,0.55), 0 0 10px 2px rgba(81,61,229,0.2); } }
+    </style>
+  </head>
+  <body>
+    <div id="ring"></div>
+  </body>
+</html>

@@ -380,8 +380,35 @@ fn start_recording(
         .visible(true)
         .build();
 
+    // subtle click-through outline showing the area being captured.
+    // window = crop rect inflated 4px so the outline sits OUTSIDE the captured pixels.
+    let m = 4.0;
+    if let Ok(region) =
+        WebviewWindowBuilder::new(&app, "region", WebviewUrl::App("region.html".into()))
+            .title("Recording area")
+            .decorations(false)
+            .transparent(true)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .shadow(false)
+            .resizable(false)
+            .focused(false)
+            .inner_size(w + m * 2.0, h + m * 2.0)
+            .position(x - m, y - m)
+            .visible(true)
+            .build()
+    {
+        let _ = region.set_ignore_cursor_events(true);
+    }
+
     set_stop_shortcut(&app, true);
     Ok(())
+}
+
+fn close_region(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("region") {
+        let _ = w.close();
+    }
 }
 
 #[tauri::command]
@@ -394,6 +421,7 @@ fn stop_recording(app: AppHandle, state: tauri::State<AppState>) -> Result<(), S
         .ok_or("No active recording")?;
 
     set_stop_shortcut(&app, false);
+    close_region(&app);
 
     // close the pill and open the editor immediately so the window is up while we finalize
     if let Some(w) = app.get_webview_window("recorder") {
@@ -486,6 +514,7 @@ fn resume_recording(state: tauri::State<AppState>) -> bool {
 #[tauri::command]
 fn delete_recording(app: AppHandle, state: tauri::State<AppState>) {
     set_stop_shortcut(&app, false);
+    close_region(&app);
     discard_recording(&state);
     if let Some(w) = app.get_webview_window("recorder") {
         let _ = w.close();
@@ -497,6 +526,7 @@ fn delete_recording(app: AppHandle, state: tauri::State<AppState>) {
 #[tauri::command]
 fn restart_recording(app: AppHandle, state: tauri::State<AppState>) {
     set_stop_shortcut(&app, false);
+    close_region(&app);
     discard_recording(&state);
     if let Some(w) = app.get_webview_window("recorder") {
         let _ = w.close();
