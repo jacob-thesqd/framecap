@@ -172,6 +172,33 @@ fn even(v: i64) -> i64 {
     v - (v % 2)
 }
 
+/// Delete recordings (and their ffmpeg logs) older than 24 hours.
+fn cleanup_old_recordings() {
+    let home = match std::env::var("HOME") {
+        Ok(h) => h,
+        Err(_) => return,
+    };
+    let dir = PathBuf::from(home).join("Movies").join("FrameCap");
+    let cutoff = match SystemTime::now().checked_sub(std::time::Duration::from_secs(24 * 3600)) {
+        Some(c) => c,
+        None => return,
+    };
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for e in entries.flatten() {
+            let p = e.path();
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if !(name.starts_with("rec-") || name.starts_with("ffmpeg-")) {
+                continue;
+            }
+            if let Ok(modified) = e.metadata().and_then(|m| m.modified()) {
+                if modified < cutoff {
+                    let _ = std::fs::remove_file(&p);
+                }
+            }
+        }
+    }
+}
+
 // Shift+Return is only a global shortcut while a recording is active (to stop it),
 // so it doesn't steal Shift+Return system-wide the rest of the time.
 fn set_stop_shortcut(app: &AppHandle, on: bool) {
@@ -618,6 +645,13 @@ pub fn run() {
                     .args(["-f", "Movies/FrameCap/rec-"])
                     .status();
             }
+
+            // purge recordings older than 24h now, then hourly while running
+            cleanup_old_recordings();
+            std::thread::spawn(|| loop {
+                std::thread::sleep(std::time::Duration::from_secs(3600));
+                cleanup_old_recordings();
+            });
 
             // check for updates in the background and self-install if one is available
             let update_handle = app.handle().clone();
