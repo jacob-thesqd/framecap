@@ -182,14 +182,12 @@ fn start_recording(
         let _ = win.close();
     }
 
-    // never spawn a doomed ffmpeg (it would hang forever waiting for frames)
+    // Request permission if it looks undetermined, but DON'T block recording on the
+    // preflight result — CGPreflightScreenCaptureAccess can report a false negative even
+    // when access is actually granted. If capture truly fails, the empty-output check in
+    // stop_recording surfaces the permission error instead.
     if !screen_perm_granted() {
         screen_perm_request();
-        let msg = "Screen Recording permission is required. Enable FrameCap in System Settings → Privacy & Security → Screen Recording, then relaunch FrameCap.";
-        *state.pending_error.lock().unwrap() = Some(msg.to_string());
-        open_editor(&app);
-        let _ = app.emit("recording-failed", msg);
-        return Ok(());
     }
 
     let cx = (x * scale).round() as i64;
