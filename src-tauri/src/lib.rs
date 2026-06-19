@@ -571,6 +571,14 @@ fn take_pending_src(state: tauri::State<AppState>) -> Option<String> {
     state.pending_src.lock().unwrap().take()
 }
 
+/// Read a recording's raw bytes (returned as a binary IPC response). The editor loads
+/// these as a Blob URL — robust regardless of asset-protocol scope/timing.
+#[tauri::command]
+fn read_recording(path: String) -> Result<tauri::ipc::Response, String> {
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 #[tauri::command]
 fn take_pending_error(state: tauri::State<AppState>) -> Option<String> {
     state.pending_error.lock().unwrap().take()
@@ -622,6 +630,7 @@ pub fn run() {
             delete_recording,
             restart_recording,
             take_pending_src,
+            read_recording,
             take_pending_error,
             ensure_screen_permission,
             get_settings,

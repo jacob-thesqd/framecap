@@ -1,4 +1,4 @@
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { writeImage } from "@tauri-apps/plugin-clipboard-manager";
 import { Image } from "@tauri-apps/api/image";
@@ -35,10 +35,22 @@ function toast(msg) {
 }
 
 // ================= LOAD SOURCE =================
-function loadSrc(path) {
-  video.src = convertFileSrc(path);
+// Read bytes through the backend and play as a Blob — avoids asset-protocol
+// scope/timing issues that left the player black with 0:00 duration.
+let currentBlobUrl = null;
+async function loadSrc(path) {
   errbar.classList.remove("show");
-  video.load();
+  try {
+    const buf = await invoke("read_recording", { path });
+    const bytes = buf instanceof ArrayBuffer ? buf : new Uint8Array(buf);
+    const blob = new Blob([bytes], { type: "video/mp4" });
+    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = URL.createObjectURL(blob);
+    video.src = currentBlobUrl;
+    video.load();
+  } catch (e) {
+    showError("Couldn't load recording — " + e);
+  }
 }
 function loadRecording(path) {
   frames = []; render();
