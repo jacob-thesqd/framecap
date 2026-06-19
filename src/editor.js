@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { writeImage } from "@tauri-apps/plugin-clipboard-manager";
 import { Image } from "@tauri-apps/api/image";
 import { save, open } from "@tauri-apps/plugin-dialog";
@@ -52,15 +53,28 @@ async function loadSrc(path) {
     showError("Couldn't load recording — " + e);
   }
 }
+let loadedPath = null;
 function loadRecording(path) {
+  if (!path || path === loadedPath) return;
+  loadedPath = path;
   frames = []; render();
   cropRect = null; globalAnnos = []; updateCropInfo();
   loadSrc(path);
 }
 function showError(msg) { errbar.textContent = "⚠ " + msg; errbar.classList.add("show"); }
 
+function playerEmpty() { return !video.duration || isNaN(video.duration); }
+
+// self-heal: load the newest recording on disk if the player is blank
+async function loadLatestIfEmpty() {
+  if (!playerEmpty()) return;
+  const p = await invoke("latest_recording");
+  if (p) loadRecording(p);
+}
+
 video.addEventListener("error", () => {
-  showError("Couldn't load video — check Screen Recording permission, then re-record.");
+  // a blob decode error shouldn't happen, but fall back to re-reading the newest file
+  loadLatestIfEmpty();
 });
 
 // poll for the pending recording path — the finalize can beat the event listener
@@ -71,11 +85,18 @@ function pollPending() {
     if (p) { loadRecording(p); return; }
     invoke("take_pending_error").then((m) => {
       if (m) { showError(m); return; }
-      if (++pollTries < 40) setTimeout(pollPending, 250); // ~10s window
+      pollTries++;
+      // after ~1.5s with nothing handed off, fall back to the newest recording
+      if (pollTries === 6) loadLatestIfEmpty();
+      if (pollTries < 40) setTimeout(pollPending, 250);
     });
   });
 }
 pollPending();
+// whenever the editor regains focus and is blank, load the newest recording
+getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+  if (focused) loadLatestIfEmpty();
+});
 listen("recording-ready", (e) => { if (e.payload) loadRecording(e.payload); });
 listen("recording-failed", (e) => {
   const p = typeof e.payload === "string" ? e.payload : "";

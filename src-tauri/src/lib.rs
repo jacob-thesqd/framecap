@@ -579,17 +579,61 @@ fn read_recording(path: String) -> Result<tauri::ipc::Response, String> {
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+/// Newest non-trivial recording on disk — the editor uses this to self-heal if the
+/// pending-src handoff ever misses (so it never sits on a blank player).
+#[tauri::command]
+fn latest_recording() -> Option<String> {
+    let home = std::env::var("HOME").ok()?;
+    let dir = PathBuf::from(home).join("Movies").join("FrameCap");
+    let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
+    for e in std::fs::read_dir(&dir).ok()?.flatten() {
+        let p = e.path();
+        let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if !(name.starts_with("rec-") && name.ends_with(".mp4")) {
+            continue;
+        }
+        let meta = match e.metadata() {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+        if meta.len() < 4096 {
+            continue;
+        }
+        let mt = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
+        if best.as_ref().map(|(t, _)| mt > *t).unwrap_or(true) {
+            best = Some((mt, p));
+        }
+    }
+    best.map(|(_, p)| p.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 fn take_pending_error(state: tauri::State<AppState>) -> Option<String> {
     state.pending_error.lock().unwrap().take()
 }
 
 async fn check_for_update(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
     use tauri_plugin_updater::UpdaterExt;
     if let Some(update) = app.updater()?.check().await? {
-        // download + install silently, then restart into the new version
-        update.download_and_install(|_, _| {}, || {}).await?;
-        app.restart();
+        let v = update.version.clone();
+        activate_app();
+        let accept = app
+            .dialog()
+            .message(format!(
+                "FrameCap {v} is available.\n\nUpdate now? The app will download it and restart."
+            ))
+            .title("Update available")
+            .kind(MessageDialogKind::Info)
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Restart & update".to_string(),
+                "Later".to_string(),
+            ))
+            .blocking_show();
+        if accept {
+            update.download_and_install(|_, _| {}, || {}).await?;
+            app.restart();
+        }
     }
     Ok(())
 }
@@ -631,6 +675,7 @@ pub fn run() {
             restart_recording,
             take_pending_src,
             read_recording,
+            latest_recording,
             take_pending_error,
             ensure_screen_permission,
             get_settings,
