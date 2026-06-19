@@ -45,7 +45,46 @@ struct AppState {
     pending_src: Mutex<Option<String>>,
     pending_error: Mutex<Option<String>>,
     record_shortcut: Mutex<String>,
+    prev_app_pid: Mutex<Option<i32>>,
 }
+
+// remember/restore the app that was frontmost before the overlay stole focus
+#[cfg(target_os = "macos")]
+fn frontmost_pid() -> Option<i32> {
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send};
+    unsafe {
+        let ws: *mut AnyObject = msg_send![class!(NSWorkspace), sharedWorkspace];
+        if ws.is_null() {
+            return None;
+        }
+        let app: *mut AnyObject = msg_send![ws, frontmostApplication];
+        if app.is_null() {
+            return None;
+        }
+        let pid: i32 = msg_send![app, processIdentifier];
+        Some(pid)
+    }
+}
+#[cfg(target_os = "macos")]
+fn reactivate_pid(pid: i32) {
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send};
+    unsafe {
+        let app: *mut AnyObject =
+            msg_send![class!(NSRunningApplication), runningApplicationWithProcessIdentifier: pid];
+        if !app.is_null() {
+            // NSApplicationActivateIgnoringOtherApps
+            let _: bool = msg_send![app, activateWithOptions: 2u64];
+        }
+    }
+}
+#[cfg(not(target_os = "macos"))]
+fn frontmost_pid() -> Option<i32> {
+    None
+}
+#[cfg(not(target_os = "macos"))]
+fn reactivate_pid(_: i32) {}
 
 const DEFAULT_SHORTCUT: &str = "CmdOrCtrl+Shift+1";
 
@@ -214,6 +253,10 @@ fn set_stop_shortcut(app: &AppHandle, on: bool) {
 }
 
 fn open_overlay(app: &AppHandle) {
+    // remember which app was frontmost so we can hand focus back when recording starts
+    if let Some(pid) = frontmost_pid() {
+        *app.state::<AppState>().prev_app_pid.lock().unwrap() = Some(pid);
+    }
     if let Some(w) = app.get_webview_window("overlay") {
         let _ = w.set_focus();
         return;
@@ -277,9 +320,13 @@ fn start_selection(app: AppHandle) {
 }
 
 #[tauri::command]
-fn cancel_selection(app: AppHandle) {
+fn cancel_selection(app: AppHandle, state: tauri::State<AppState>) {
     if let Some(w) = app.get_webview_window("overlay") {
         let _ = w.close();
+    }
+    // restore focus to the app the user was in before opening the selector
+    if let Some(pid) = state.prev_app_pid.lock().unwrap().take() {
+        reactivate_pid(pid);
     }
 }
 
@@ -408,6 +455,12 @@ fn start_recording(
     }
 
     set_stop_shortcut(&app, true);
+
+    // hand focus back to the app the user was in before they opened the selector
+    if let Some(pid) = state.prev_app_pid.lock().unwrap().take() {
+        reactivate_pid(pid);
+    }
+
     Ok(())
 }
 
