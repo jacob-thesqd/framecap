@@ -229,13 +229,13 @@ document.getElementById("capBtn").addEventListener("click", () => {
 window.addEventListener("keydown", (e) => {
   if (annoModal.classList.contains("open")) return;           // modal handles its own
   if (collageModal.classList.contains("open")) return;        // preview modal handles its own
-  if (e.key === "Enter" && e.shiftKey) {                      // Shift+Return → preview collage
-    e.preventDefault();
-    openCollagePreview();
-    return;
-  }
+  // collage export shortcuts (work regardless of focus)
+  if (e.shiftKey && e.key === "Enter") { e.preventDefault(); document.getElementById("collageCopy").click(); return; }
+  if (e.shiftKey && e.code === "Space") { e.preventDefault(); openCollagePreview(); return; }
+  if (e.metaKey && e.key.toLowerCase() === "s") { e.preventDefault(); document.getElementById("collageSave").click(); return; }
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA") return;          // don't hijack typing
+  if (e.shiftKey && e.key.toLowerCase() === "s") { e.preventDefault(); document.getElementById("collageSave").click(); return; }
   if (e.key === "ArrowLeft") { e.preventDefault(); stepFrame(-1); }
   else if (e.key === "ArrowRight") { e.preventDefault(); stepFrame(1); }
   else if (e.key === "ArrowUp") {
@@ -590,7 +590,7 @@ window.addEventListener("keydown", (e) => {
   if (!collageModal.classList.contains("open")) return;
   if (e.key === "Escape") { e.preventDefault(); closeCollagePreview(); }
   else if (e.key === "Enter") { e.preventDefault(); document.getElementById("cmCopy").click(); }
-  else if (e.key.toLowerCase() === "s" && e.metaKey) { e.preventDefault(); document.getElementById("cmSave").click(); }
+  else if (e.key.toLowerCase() === "s" && (e.metaKey || e.shiftKey)) { e.preventDefault(); document.getElementById("cmSave").click(); }
 });
 
 // ================= HEADER =================
