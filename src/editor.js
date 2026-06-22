@@ -525,11 +525,15 @@ async function buildCollage() {
   if (sel.length < 1) { toast("Select at least one frame"); return null; }
   const gap = 8, pad = 8, bg = "#0e0e11";
   const numbered = document.getElementById("numbered").checked;
-  let cols = parseInt(document.getElementById("cols").value) || 0;
-  if (cols <= 0) cols = sel.length;
-  const rows = Math.ceil(sel.length / cols);
   const imgs = await Promise.all(sel.map((f) => loadImg(f.dataUrl)));
   const cw = imgs[0].width, ch = imgs[0].height;
+
+  // layout: auto picks by aspect (landscape → stack vertically, portrait → horizontal);
+  // horizontal wraps at a max of 5 columns
+  let layout = document.getElementById("layout").value;
+  if (layout === "auto") layout = cw >= ch ? "vertical" : "horizontal";
+  const cols = layout === "vertical" ? 1 : Math.min(5, sel.length);
+  const rows = Math.ceil(sel.length / cols);
   const W = pad * 2 + cols * cw + (cols - 1) * gap;
   const H = pad * 2 + rows * ch + (rows - 1) * gap;
   work.width = W; work.height = H;
@@ -564,17 +568,47 @@ function loadImg(src) { return new Promise((res) => { const i = new window.Image
 const collageModal = document.getElementById("collageModal");
 const collageImg = document.getElementById("collageImg");
 const collageMeta = document.getElementById("collageMeta");
+const collageStage = document.getElementById("collageStage");
+const cmZoom = document.getElementById("cmZoom");
 let previewCollage = null;
+let fitWidth = 0, zoom = 1;
+
+function applyZoom() {
+  if (!fitWidth) return;
+  collageImg.style.width = Math.round(fitWidth * zoom) + "px";
+  collageImg.style.height = "auto";
+  cmZoom.textContent = Math.round(zoom * 100) + "%";
+}
+function fitZoom() {
+  // base size that fits the stage (contain), capped at natural size
+  const sw = collageStage.clientWidth - 32, sh = collageStage.clientHeight - 32;
+  const nw = collageImg.naturalWidth, nh = collageImg.naturalHeight;
+  const s = Math.min(sw / nw, sh / nh, 1);
+  fitWidth = nw * s;
+  zoom = 1;
+  applyZoom();
+}
+function setZoom(z) { zoom = Math.max(0.2, Math.min(8, z)); applyZoom(); }
 
 async function openCollagePreview() {
   const c = await buildCollage();
   if (!c) return;
   previewCollage = c;
+  collageImg.onload = () => fitZoom();
   collageImg.src = c.dataUrl;
   collageMeta.textContent = `· ${c.count} frame${c.count === 1 ? "" : "s"}`;
   collageModal.classList.add("open");
 }
 function closeCollagePreview() { collageModal.classList.remove("open"); }
+
+document.getElementById("cmZoomIn").addEventListener("click", () => setZoom(zoom * 1.25));
+document.getElementById("cmZoomOut").addEventListener("click", () => setZoom(zoom / 1.25));
+document.getElementById("cmZoomFit").addEventListener("click", fitZoom);
+// trackpad pinch / ctrl-scroll to zoom
+collageStage.addEventListener("wheel", (e) => {
+  if (!collageModal.classList.contains("open")) return;
+  if (e.ctrlKey || e.metaKey) { e.preventDefault(); setZoom(zoom * (e.deltaY < 0 ? 1.1 : 0.9)); }
+}, { passive: false });
 
 document.getElementById("collagePreview").addEventListener("click", openCollagePreview);
 document.getElementById("cmClose").addEventListener("click", closeCollagePreview);
@@ -591,6 +625,9 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { e.preventDefault(); closeCollagePreview(); }
   else if (e.key === "Enter") { e.preventDefault(); document.getElementById("cmCopy").click(); }
   else if (e.key.toLowerCase() === "s" && (e.metaKey || e.shiftKey)) { e.preventDefault(); document.getElementById("cmSave").click(); }
+  else if (e.key === "=" || e.key === "+") { e.preventDefault(); setZoom(zoom * 1.25); }
+  else if (e.key === "-") { e.preventDefault(); setZoom(zoom / 1.25); }
+  else if (e.key === "0") { e.preventDefault(); fitZoom(); }
 });
 
 // ================= HEADER =================

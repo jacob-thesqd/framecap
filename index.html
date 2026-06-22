@@ -117,10 +117,11 @@
       .sidefoot { border-top: 1px solid var(--line); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
       .sidefoot .row { display: flex; gap: 8px; align-items: center; }
       .sidefoot label { font-size: 12px; color: var(--muted); }
-      .sidefoot input[type=number] {
-        width: 56px; background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+      .sidefoot input[type=number], .sidefoot select {
+        background: var(--panel2); border: 1px solid var(--line); color: var(--text);
         border-radius: 7px; padding: 5px 7px; font-family: inherit; font-size: 13px;
       }
+      .sidefoot input[type=number] { width: 56px; }
       .empty { color: var(--muted); font-size: 12px; padding: 24px 16px; text-align: center; }
       .toast {
         position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -168,8 +169,8 @@
       }
       #collageBar .ctitle { font-size: 13px; font-weight: 700; }
       #collageBar #collageMeta { color: var(--muted); font-weight: 500; }
-      #collageStage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 16px; overflow: auto; }
-      #collageImg { max-width: 100%; max-height: 100%; box-shadow: 0 10px 50px rgba(0,0,0,.6); }
+      #collageStage { flex: 1; min-height: 0; padding: 16px; overflow: auto; text-align: center; }
+      #collageImg { display: inline-block; box-shadow: 0 10px 50px rgba(0,0,0,.6); }
     </style>
   </head>
   <body>
@@ -218,9 +219,13 @@
         </div>
         <div class="sidefoot">
           <div class="row">
-            <label>Collage cols</label>
-            <input type="number" id="cols" value="0" min="0" max="20" />
-            <span style="font-size:11px;color:var(--muted)">0 = single row</span>
+            <label>Layout</label>
+            <select id="layout">
+              <option value="auto">Auto</option>
+              <option value="horizontal">Horizontal</option>
+              <option value="vertical">Vertical</option>
+            </select>
+            <span style="font-size:11px;color:var(--muted)">max 5 / row</span>
           </div>
           <div class="row">
             <label><input type="checkbox" id="numbered" checked /> number frames</label>
@@ -249,6 +254,12 @@
     <div id="collageModal">
       <div id="collageBar">
         <span class="ctitle">Collage preview <span id="collageMeta"></span></span>
+        <span class="annogroup" style="margin-left:14px">
+          <button class="annobtn ghost" id="cmZoomOut">−</button>
+          <span id="cmZoom" style="font-size:12px;color:var(--muted);min-width:42px;text-align:center">100%</span>
+          <button class="annobtn ghost" id="cmZoomIn">+</button>
+          <button class="annobtn ghost" id="cmZoomFit">Fit</button>
+        </span>
         <span style="flex:1"></span>
         <button class="annobtn ghost" id="cmClose">Close <kbd>esc</kbd></button>
         <button class="annobtn ghost" id="cmSave">Save <kbd>⌘S</kbd></button>
