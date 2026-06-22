@@ -4,6 +4,23 @@ A tiny macOS menubar app (Tauri + ffmpeg) for recording a region of your screen 
 pulling **frames** out of the recording — built for showing Claude exactly where a UI
 breaks during motion, where video can't be analyzed directly.
 
+## ⬇️ Download
+
+**[Download the latest release →](https://github.com/jacob-thesqd/framecap/releases/latest)**
+
+### Install
+
+1. Download `FrameCap_<version>_universal.dmg` from the release Assets (Apple Silicon & Intel).
+2. Open the `.dmg` and **drag FrameCap into Applications**.
+3. **First launch:** double-click it. If macOS says it "cannot verify the developer,"
+   open **System Settings → Privacy & Security → Open Anyway**, then confirm.
+4. **Grant Screen Recording:** the first recording prompts for permission — enable
+   **FrameCap** under **System Settings → Privacy & Security → Screen Recording**, then
+   **quit and reopen** FrameCap.
+
+After that, FrameCap **auto-updates** itself (prompts to restart on launch when a new
+version is available; also check via the menubar icon → **Settings…**).
+
 ## What it does
 
 1. **Hotkey `⌘⇧1`** (or the menubar icon → *Record area*) opens a dimmed overlay.
