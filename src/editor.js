@@ -228,9 +228,10 @@ document.getElementById("capBtn").addEventListener("click", () => {
 // keyboard: ← / → step one frame, Return captures the current frame
 window.addEventListener("keydown", (e) => {
   if (annoModal.classList.contains("open")) return;           // modal handles its own
-  if (e.key === "Enter" && e.shiftKey) {                      // Shift+Return → copy collage
+  if (collageModal.classList.contains("open")) return;        // preview modal handles its own
+  if (e.key === "Enter" && e.shiftKey) {                      // Shift+Return → preview collage
     e.preventDefault();
-    document.getElementById("collageCopy").click();
+    openCollagePreview();
     return;
   }
   const tag = (e.target && e.target.tagName) || "";
@@ -558,6 +559,39 @@ document.getElementById("collageSave").addEventListener("click", async () => {
   if (c) await saveDataUrl(c.dataUrl, `collage-${c.count}frames.png`);
 });
 function loadImg(src) { return new Promise((res) => { const i = new window.Image(); i.onload = () => res(i); i.src = src; }); }
+
+// ---- collage preview modal ----
+const collageModal = document.getElementById("collageModal");
+const collageImg = document.getElementById("collageImg");
+const collageMeta = document.getElementById("collageMeta");
+let previewCollage = null;
+
+async function openCollagePreview() {
+  const c = await buildCollage();
+  if (!c) return;
+  previewCollage = c;
+  collageImg.src = c.dataUrl;
+  collageMeta.textContent = `· ${c.count} frame${c.count === 1 ? "" : "s"}`;
+  collageModal.classList.add("open");
+}
+function closeCollagePreview() { collageModal.classList.remove("open"); }
+
+document.getElementById("collagePreview").addEventListener("click", openCollagePreview);
+document.getElementById("cmClose").addEventListener("click", closeCollagePreview);
+document.getElementById("cmCopy").addEventListener("click", async () => {
+  if (previewCollage) await copyDataUrl(previewCollage.dataUrl);
+  closeCollagePreview();
+});
+document.getElementById("cmSave").addEventListener("click", async () => {
+  if (previewCollage) await saveDataUrl(previewCollage.dataUrl, `collage-${previewCollage.count}frames.png`);
+});
+// keyboard within the preview modal: Enter = copy, ⌘S = save, Esc = close
+window.addEventListener("keydown", (e) => {
+  if (!collageModal.classList.contains("open")) return;
+  if (e.key === "Escape") { e.preventDefault(); closeCollagePreview(); }
+  else if (e.key === "Enter") { e.preventDefault(); document.getElementById("cmCopy").click(); }
+  else if (e.key.toLowerCase() === "s" && e.metaKey) { e.preventDefault(); document.getElementById("cmSave").click(); }
+});
 
 // ================= HEADER =================
 document.getElementById("clearAll").addEventListener("click", () => {

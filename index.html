@@ -156,6 +156,20 @@
       .annobtn.ghost:hover { background: #2a2a33; }
       #annoStage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 16px; }
       #annoCanvas { max-width: 100%; max-height: 100%; cursor: crosshair; box-shadow: 0 10px 50px rgba(0,0,0,.6); background: #000; }
+      /* collage preview modal */
+      #collageModal {
+        position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column;
+        background: rgba(8,8,10,.92); backdrop-filter: blur(4px);
+      }
+      #collageModal.open { display: flex; }
+      #collageBar {
+        display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+        background: var(--panel); border-bottom: 1px solid var(--line);
+      }
+      #collageBar .ctitle { font-size: 13px; font-weight: 700; }
+      #collageBar #collageMeta { color: var(--muted); font-weight: 500; }
+      #collageStage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 16px; overflow: auto; }
+      #collageImg { max-width: 100%; max-height: 100%; box-shadow: 0 10px 50px rgba(0,0,0,.6); }
     </style>
   </head>
   <body>
@@ -212,8 +226,11 @@
             <label><input type="checkbox" id="numbered" checked /> number frames</label>
           </div>
           <div class="row">
+            <button class="btn" id="collagePreview" style="flex:1">Preview collage <kbd class="on">⇧↵</kbd></button>
+          </div>
+          <div class="row">
             <button class="btn ghost" id="collageSave" style="flex:1">Save</button>
-            <button class="btn" id="collageCopy" style="flex:1">Copy <kbd class="on">⇧↵</kbd></button>
+            <button class="btn ghost" id="collageCopy" style="flex:1">Copy</button>
           </div>
         </div>
       </div>
@@ -226,6 +243,18 @@
         <button class="annobtn" id="annoSave">Save</button>
       </div>
       <div id="annoStage"><canvas id="annoCanvas"></canvas></div>
+    </div>
+
+    <!-- collage preview modal -->
+    <div id="collageModal">
+      <div id="collageBar">
+        <span class="ctitle">Collage preview <span id="collageMeta"></span></span>
+        <span style="flex:1"></span>
+        <button class="annobtn ghost" id="cmClose">Close <kbd>esc</kbd></button>
+        <button class="annobtn ghost" id="cmSave">Save <kbd>⌘S</kbd></button>
+        <button class="annobtn" id="cmCopy">Copy <kbd>⏎</kbd></button>
+      </div>
+      <div id="collageStage"><img id="collageImg" alt="collage preview" /></div>
     </div>
 
     <div class="toast" id="toast"></div>
