@@ -10,9 +10,10 @@
 
       /* crosshair (while creating a selection) */
       body.idle, body.idle *, body.creating, body.creating * { cursor: none; }
-      #chV, #chH { position: fixed; background: rgba(255,255,255,.95); pointer-events: none; z-index: 80; display: none; box-shadow: 0 0 0 .5px rgba(0,0,0,.55); }
-      #chV { width: 1.5px; height: 20px; }
-      #chH { height: 1.5px; width: 20px; }
+      /* white line + solid black outline → visible on both light and dark backgrounds */
+      #chV, #chH { position: fixed; background: #fff; pointer-events: none; z-index: 80; display: none; box-shadow: 0 0 0 1px #000; }
+      #chV { width: 2px; height: 22px; }
+      #chH { height: 2px; width: 22px; }
       body.idle #chV, body.idle #chH, body.creating #chV, body.creating #chH { display: block; }
 
       #hint {
