@@ -456,9 +456,18 @@ fn start_recording(
 
     set_stop_shortcut(&app, true);
 
-    // hand focus back to the app the user was in before they opened the selector
-    if let Some(pid) = state.prev_app_pid.lock().unwrap().take() {
-        reactivate_pid(pid);
+    // hand focus back to the app the user was in before the selector — but only if
+    // FrameCap is still frontmost (if they clicked another window during the countdown,
+    // that's the one they want focused, so leave it).
+    let prev = state.prev_app_pid.lock().unwrap().take();
+    #[cfg(target_os = "macos")]
+    {
+        let self_pid = std::process::id() as i32;
+        if frontmost_pid() == Some(self_pid) {
+            if let Some(pid) = prev {
+                reactivate_pid(pid);
+            }
+        }
     }
 
     Ok(())

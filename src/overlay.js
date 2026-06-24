@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const selEl = document.getElementById("sel");
 const chV = document.getElementById("chV");
@@ -144,13 +145,15 @@ function abortCountdown() {
   countingDown = false;
   clearTimeout(countdownTimer); countdownTimer = null;
   countdownEl.style.display = "none";
+  getCurrentWindow().setIgnoreCursorEvents(false);
   setPhase("ready"); renderSel(); updateInputs();
 }
 
 recBtn.addEventListener("click", () => {
   if (!rect) return;
-  setPhase("hidden");
   document.body.className = ""; // hide all chrome during countdown
+  // make the overlay click-through so you can click any window to focus it
+  getCurrentWindow().setIgnoreCursorEvents(true);
   countingDown = true;
   let n = 3;
   countdownEl.style.display = "block";
