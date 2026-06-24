@@ -164,12 +164,13 @@
       }
       #collageModal.open { display: flex; }
       #collageBar {
-        display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+        display: flex; align-items: center; gap: 10px; padding: 10px 14px 10px 84px;
         background: var(--panel); border-bottom: 1px solid var(--line);
       }
       #collageBar .ctitle { font-size: 13px; font-weight: 700; }
       #collageBar #collageMeta { color: var(--muted); font-weight: 500; }
-      #collageStage { flex: 1; min-height: 0; padding: 16px; overflow: auto; text-align: center; }
+      #collageStage { flex: 1; min-height: 0; padding: 16px; overflow: auto; text-align: center; cursor: grab; }
+      #collageStage.grabbing { cursor: grabbing; }
       #collageImg { display: inline-block; box-shadow: 0 10px 50px rgba(0,0,0,.6); }
     </style>
   </head>

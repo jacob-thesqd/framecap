@@ -609,6 +609,22 @@ collageStage.addEventListener("wheel", (e) => {
   if (!collageModal.classList.contains("open")) return;
   if (e.ctrlKey || e.metaKey) { e.preventDefault(); setZoom(zoom * (e.deltaY < 0 ? 1.1 : 0.9)); }
 }, { passive: false });
+// mouse drag to pan
+let panning = false, panStart = null;
+collageStage.addEventListener("mousedown", (e) => {
+  panning = true;
+  panStart = { x: e.clientX, y: e.clientY, l: collageStage.scrollLeft, t: collageStage.scrollTop };
+  collageStage.classList.add("grabbing");
+  e.preventDefault();
+});
+window.addEventListener("mousemove", (e) => {
+  if (!panning) return;
+  collageStage.scrollLeft = panStart.l - (e.clientX - panStart.x);
+  collageStage.scrollTop = panStart.t - (e.clientY - panStart.y);
+});
+window.addEventListener("mouseup", () => {
+  if (panning) { panning = false; collageStage.classList.remove("grabbing"); }
+});
 
 document.getElementById("collagePreview").addEventListener("click", openCollagePreview);
 document.getElementById("cmClose").addEventListener("click", closeCollagePreview);
@@ -625,9 +641,13 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { e.preventDefault(); closeCollagePreview(); }
   else if (e.key === "Enter") { e.preventDefault(); document.getElementById("cmCopy").click(); }
   else if (e.key.toLowerCase() === "s" && (e.metaKey || e.shiftKey)) { e.preventDefault(); document.getElementById("cmSave").click(); }
-  else if (e.key === "=" || e.key === "+") { e.preventDefault(); setZoom(zoom * 1.25); }
-  else if (e.key === "-") { e.preventDefault(); setZoom(zoom / 1.25); }
+  else if (e.key === "=" || e.key === "+") { e.preventDefault(); setZoom(zoom * 1.25); }   // Shift+= → +
+  else if (e.key === "-" || e.key === "_") { e.preventDefault(); setZoom(zoom / 1.25); }   // Shift+- → _
   else if (e.key === "0") { e.preventDefault(); fitZoom(); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); collageStage.scrollTop -= 80; }
+  else if (e.key === "ArrowDown") { e.preventDefault(); collageStage.scrollTop += 80; }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); collageStage.scrollLeft -= 80; }
+  else if (e.key === "ArrowRight") { e.preventDefault(); collageStage.scrollLeft += 80; }
 });
 
 // ================= HEADER =================
